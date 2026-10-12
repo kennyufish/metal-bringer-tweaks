@@ -46,7 +46,6 @@ Delete `ue4ss\Mods\MetalTweaks`. To remove UE4SS too, delete `dwmapi.dll` and th
 
 ## Notes
 
-- Don't stack this with another D.Chip multiplier (for example a Cheat Engine table); both would multiply.
 - A single D.Chip gain larger than 1000 is not multiplied, so loading a save or switching scenes doesn't inflate your balance.
 - Extra disks spawn where the original disk dropped. The game's item pool size is unknown, so very high disk multipliers may leave some extras unspawned.
 - If something fails, the window's "Last:" line and `ue4ss\UE4SS.log` show the `[MetalTweaks]` error. Please include it in bug reports.
@@ -59,7 +58,7 @@ Fan-made and unofficial. Not affiliated with or endorsed by ALPHAWING Inc. or PL
 
 非官方的 Metal Bringer UE4SS mod，带设置窗口，所有选项默认 x1（关闭），改了约 1 秒生效：D.Chip 获取倍率、Disk 掉落数量倍率、R4/R5 稀有度权重、EXP 获取倍率。
 
-安装：先装 UE4SS **experimental** 版（解压到 `Binaries\Win64`），再把 `MetalTweaks` 文件夹放进 `ue4ss\Mods\`，启动游戏后双击 `MetalTweaksPanel.cmd` 打开设置窗口（需要 Python 3；没有的话可以直接改 `settings.txt`）。窗口右下角可切换中文。不要和 CT 表的 D.Chip 倍率同时使用。
+安装：先装 UE4SS **experimental** 版（解压到 `Binaries\Win64`），再把 `MetalTweaks` 文件夹放进 `ue4ss\Mods\`，启动游戏后双击 `MetalTweaksPanel.cmd` 打开设置窗口（需要 Python 3；没有的话可以直接改 `settings.txt`）。窗口右下角可切换中文。
 
 ## License
 
