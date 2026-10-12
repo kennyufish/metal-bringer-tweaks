@@ -1,0 +1,5 @@
+# runtime files the mod and panel write next to Scripts/
+MetalTweaks/settings.txt
+MetalTweaks/settings.txt.tmp
+MetalTweaks/status.txt
+__pycache__/
