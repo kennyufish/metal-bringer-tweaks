@@ -1,11 +1,41 @@
 """MetalTweaks panel: edits the MetalTweaks UE4SS mod's settings.txt and shows its live status.txt.
-Lives inside the mod folder (ue4ss\\Mods\\MetalTweaks); the METALTWEAKS_DIR environment variable overrides that."""
+Inside ue4ss\\Mods\\MetalTweaks it controls that copy; run from anywhere else (the repo, an unzipped download) it
+controls the copy installed in the Steam game. The METALTWEAKS_DIR environment variable overrides both."""
 import os
+import re
 import time
 import tkinter as tk
+import winreg
 from tkinter import ttk
 
-MOD_DIR = os.environ.get("METALTWEAKS_DIR") or os.path.dirname(os.path.abspath(__file__))
+GAME_MOD = r"steamapps\common\Metal Bringer\MetalBringer\Binaries\Win64\ue4ss\Mods\MetalTweaks"
+
+
+def in_mods_folder(d):
+    return os.path.basename(os.path.dirname(os.path.normpath(d))).lower() == "mods"
+
+
+def installed_mod_dir():
+    """MetalTweaks inside the Steam install of Metal Bringer (any Steam library), or None."""
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam") as key:
+            steam = winreg.QueryValueEx(key, "SteamPath")[0]
+    except OSError:
+        steam = r"C:\Program Files (x86)\Steam"
+    libs = [steam]
+    try:
+        with open(os.path.join(steam, "steamapps", "libraryfolders.vdf"), encoding="utf-8") as f:
+            libs += [p.replace("\\\\", "\\") for p in re.findall(r'"path"\s+"([^"]+)"', f.read())]
+    except OSError:
+        pass
+    for lib in libs:
+        d = os.path.normpath(os.path.join(lib, GAME_MOD))
+        if os.path.isfile(os.path.join(d, "Scripts", "main.lua")):
+            return d
+
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+MOD_DIR = os.environ.get("METALTWEAKS_DIR") or (HERE if in_mods_folder(HERE) else installed_mod_dir() or HERE)
 SETTINGS = os.path.join(MOD_DIR, "settings.txt")
 STATUS = os.path.join(MOD_DIR, "status.txt")
 
@@ -27,7 +57,7 @@ TEXT = {
         "info": ("Extra D.Chip: +{coin_bonus}\nExtra disks dropped: {disk_extra}\n"
                  "R4/R5 share (this floor's bag): {rarity_share}\nExtra EXP: +{exp_bonus}\nLast: {last}"),
         "topmost": "Always on top", "lang": "Language",
-        "no_mod": "MetalTweaks not found in {dir}\nKeep this panel inside ue4ss\\Mods\\MetalTweaks.",
+        "no_mod": "MetalTweaks isn't installed in the game.\nCopy the MetalTweaks folder into Binaries\\Win64\\ue4ss\\Mods\\ (see README).",
         "save_fail": "Save failed: {err}",
     },
     "zh": {
@@ -39,7 +69,7 @@ TEXT = {
         "info": ("本次额外 D.Chip：+{coin_bonus}\n额外掉落 Disk：{disk_extra} 张\n"
                  "R4/R5 占比（本层袋子）：{rarity_share}\n额外 EXP：+{exp_bonus}\n最近：{last}"),
         "topmost": "窗口置顶", "lang": "语言",
-        "no_mod": "在 {dir} 找不到 MetalTweaks\n请把面板放在 ue4ss\\Mods\\MetalTweaks 里。",
+        "no_mod": "游戏里还没装 MetalTweaks。\n请把 MetalTweaks 文件夹复制到 Binaries\\Win64\\ue4ss\\Mods\\（见 README）。",
         "save_fail": "保存失败：{err}",
     },
 }
@@ -122,8 +152,8 @@ class Panel(tk.Tk):
             self.vars[key].set(self.label_of(n))
         self.top_box.config(text=self.t("topmost"))
         self.lang_label.config(text=self.t("lang"))
-        mod_ok = os.path.isfile(os.path.join(MOD_DIR, "Scripts", "main.lua"))
-        self.msg.config(text="" if mod_ok else self.t("no_mod", dir=MOD_DIR))
+        mod_ok = in_mods_folder(MOD_DIR) and os.path.isfile(os.path.join(MOD_DIR, "Scripts", "main.lua"))
+        self.msg.config(text="" if mod_ok else self.t("no_mod"))
 
     def save(self):
         tmp = SETTINGS + ".tmp"

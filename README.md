@@ -23,7 +23,7 @@ The mod only changes values in memory while you play. It doesn't touch game file
 1. Install UE4SS: extract the zip into `...\steamapps\common\Metal Bringer\MetalBringer\Binaries\Win64\`, so that `dwmapi.dll` and the `ue4ss` folder sit next to `MetalBringer-Win64-Shipping.exe`.
 2. Copy the `MetalTweaks` folder from this repo into `...\Binaries\Win64\ue4ss\Mods\`.
 3. Start the game. `ue4ss\UE4SS.log` should contain `[MetalTweaks] loaded`.
-4. Double-click `ue4ss\Mods\MetalTweaks\MetalTweaksPanel.cmd` to open the settings window. Make a desktop shortcut to it if you like.
+4. Double-click `MetalTweaksPanel.cmd` to open the settings window. Run from the game's `ue4ss\Mods\MetalTweaks` folder, it controls that copy. Run from anywhere else (for example the folder you downloaded), it finds the copy installed in the game through your Steam libraries.
 
 The window shows whether the mod is connected, which options are active, and what has been added so far this session. Language: English or 中文 (bottom right).
 
