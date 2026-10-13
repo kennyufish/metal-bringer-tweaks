@@ -9,6 +9,7 @@ Every option defaults to x1 (off). Changes apply in about one second, without re
 | Disk drop count | x1–x5 | Each disk the game drops brings N−1 extra disks, drawn from the same floor's chip pool. |
 | Rare chip (R4/R5) weight | x1, x2, x4, x8 | Rank 4/5 chips become N times as likely, among the chips the current floor allows. |
 | EXP gain | x1–x10 | Every EXP grant counts N times. Level-ups are handled by the game as usual. |
+| Combo (HIT) gain | x1, x2, x3, x5, x10 | Each hit adds N to your combo instead of 1. It still resets when the combo times out, and your max-combo record follows it. |
 
 The mod only changes values in memory while you play. It doesn't touch game files or the save format, but whatever you earn while it's on is saved as normal progress.
 
@@ -36,9 +37,10 @@ coin=2
 disk=1
 rarity=4
 exp=3
+hit=1
 ```
 
-Limits: `coin` 1–20, `disk` 1–10, `rarity` 1–20, `exp` 1–20. `status.txt` next to it shows what is currently active.
+Limits: `coin` 1–20, `disk` 1–10, `rarity` 1–20, `exp` 1–20, `hit` 1–20. `status.txt` next to it shows what is currently active.
 
 ## Uninstall
 

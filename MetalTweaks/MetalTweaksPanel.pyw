@@ -44,13 +44,16 @@ FEATURES = [  # key, choices
     ("disk", [1, 2, 3, 4, 5]),
     ("rarity", [1, 2, 4, 8]),
     ("exp", [1, 2, 3, 4, 5, 8, 10]),
+    ("hit", [1, 2, 3, 5, 10]),
 ]
+CHOICES = dict(FEATURES)  # the first choice of each feature means off
 STALE_SECONDS = 5  # status older than this = mod not running
 LANGS = {"en": "English", "zh": "中文"}
 TEXT = {
     "en": {
         "coin": "D.Chip gain", "disk": "Disk drop count", "rarity": "Rare chip (R4/R5) weight", "exp": "EXP gain",
-        "off": "off", "pending": "Applying…", "active": "● On x{n}", "inactive": "○ Off",
+        "hit": "Combo (HIT) gain",
+        "off": "off", "pending": "Applying…", "active": "● On {n}", "inactive": "○ Off",
         "conn_none": "● Mod not connected (game closed or MetalTweaks not loaded)",
         "conn_menu": "● Mod connected, waiting for a stage",
         "conn_floor": "● Mod connected, floor {floor}",
@@ -62,7 +65,8 @@ TEXT = {
     },
     "zh": {
         "coin": "D.Chip 获取倍率", "disk": "Disk 掉落数量倍率", "rarity": "高稀有度 (R4/R5) 权重", "exp": "EXP 获取倍率",
-        "off": "关闭", "pending": "等待生效…", "active": "● 生效中 x{n}", "inactive": "○ 关闭",
+        "hit": "连击 (HIT) 倍率",
+        "off": "关闭", "pending": "等待生效…", "active": "● 生效中 {n}", "inactive": "○ 关闭",
         "conn_none": "● Mod 未连接（游戏没开或 MetalTweaks 没加载）",
         "conn_menu": "● Mod 已连接，等待进入关卡",
         "conn_floor": "● Mod 已连接，楼层 {floor}",
@@ -94,15 +98,16 @@ class Panel(tk.Tk):
         self.vars, self.boxes, self.names, self.state_labels = {}, {}, {}, {}
         frm = ttk.Frame(self, padding=12)
         frm.grid()
+        self.values = {}
         for row, (key, choices) in enumerate(FEATURES):
             self.names[key] = ttk.Label(frm)
             self.names[key].grid(row=row, column=0, sticky="w", pady=3)
-            cur = saved.get(key, "1")
-            cur = int(cur) if cur.isdigit() and int(cur) in choices else 1
-            self.vars[key] = tk.StringVar(value=self.label_of(cur))
+            cur = saved.get(key, "")
+            self.values[key] = int(cur) if cur.isdigit() and int(cur) in choices else choices[0]
+            self.vars[key] = tk.StringVar()
             self.boxes[key] = ttk.Combobox(frm, textvariable=self.vars[key], state="readonly", width=10)
             self.boxes[key].grid(row=row, column=1, padx=8)
-            self.boxes[key].bind("<<ComboboxSelected>>", lambda _e: self.save())
+            self.boxes[key].bind("<<ComboboxSelected>>", lambda _e, k=key: self.pick(k))
             self.state_labels[key] = ttk.Label(frm, width=16)
             self.state_labels[key].grid(row=row, column=2, sticky="w")
         r = len(FEATURES)
@@ -132,11 +137,15 @@ class Panel(tk.Tk):
     def t(self, key, **kw):
         return TEXT[self.lang][key].format(**kw)
 
-    def label_of(self, n):
-        return f"x1 ({self.t('off')})" if n == 1 else f"x{n}"
+    def label_of(self, key, n):
+        return f"x{n}" if n != CHOICES[key][0] else f"x{n} ({self.t('off')})"
+
+    def pick(self, key):
+        self.values[key] = next(c for c in CHOICES[key] if self.label_of(key, c) == self.vars[key].get())
+        self.save()
 
     def chosen(self, key):
-        return int(self.vars[key].get().split()[0][1:])
+        return self.values[key]
 
     def set_lang(self):
         self.lang = next(code for code, name in LANGS.items() if name == self.lang_var.get())
@@ -146,10 +155,9 @@ class Panel(tk.Tk):
 
     def apply_lang(self):
         for key, choices in FEATURES:
-            n = self.chosen(key)
             self.names[key].config(text=self.t(key))
-            self.boxes[key].config(values=[self.label_of(c) for c in choices])
-            self.vars[key].set(self.label_of(n))
+            self.boxes[key].config(values=[self.label_of(key, c) for c in choices])
+            self.vars[key].set(self.label_of(key, self.chosen(key)))
         self.top_box.config(text=self.t("topmost"))
         self.lang_label.config(text=self.t("lang"))
         mod_ok = in_mods_folder(MOD_DIR) and os.path.isfile(os.path.join(MOD_DIR, "Scripts", "main.lua"))
@@ -182,10 +190,10 @@ class Panel(tk.Tk):
                 text, color = "—", "#888"
             elif int(applied) != self.chosen(key):
                 text, color = self.t("pending"), "#c80"
-            elif applied == "1":
+            elif int(applied) == CHOICES[key][0]:
                 text, color = self.t("inactive"), "#888"
             else:
-                text, color = self.t("active", n=applied), "#080"
+                text, color = self.t("active", n=f"x{applied}"), "#080"
             self.state_labels[key].config(text=text, foreground=color)
         self.info.config(text=TEXT[self.lang]["info"].format_map({**INFO_DEFAULTS, **s}) if alive else "")
         if reschedule:

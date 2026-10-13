@@ -8,18 +8,23 @@
 --   rarity : Rank 4/5 chips weigh xN inside the floor's chip bags; chips the floor excluded stay excluded.
 --   exp    : every MainSeq.AddExp(ID, Val) the game makes is followed by AddExp(ID, Val*(N-1)), so the game's own
 --            level-up logic handles the extra EXP.
+--   hit    : the player's hit combo (BP_Labor.Comb, the HUD's HIT) grows xN per hit; it still resets on timeout.
 
 math.randomseed(os.time())
 local DIR = debug.getinfo(1, "S").source:match("^@(.*[\\/])[Ss]cripts[\\/]") or ""
 local SETTINGS, STATUS = DIR .. "settings.txt", DIR .. "status.txt"
-local LIMITS = { coin = 20, disk = 10, rarity = 20, exp = 20 }
-local cfg = { coin = 1, disk = 1, rarity = 1, exp = 1 }
+local LIMITS = { coin = 20, disk = 10, rarity = 20, exp = 20, hit = 20 }
+local cfg = { coin = 1, disk = 1, rarity = 1, exp = 1, hit = 1 }
 local st = { coinBonus = 0, diskExtra = 0, expBonus = 0, share = "-", floor = "-", inGame = false, last = "loaded" }
 
 local TAG = "[MetalTweaks] "
+local function note(msg) -- panel's "Last:" line only; for events that fire many times a second
+    st.last = os.date("%H:%M:%S ") .. msg
+end
+
 local function log(msg)
     print(TAG .. msg .. "\n")
-    st.last = os.date("%H:%M:%S ") .. msg
+    note(msg)
 end
 
 local function get(obj, key)
@@ -43,9 +48,9 @@ local function writeStatus()
     if not f then return end
     f:write(string.format(
         "updated=%d\ningame=%s\nfloor=%s\ncoin=%d\ncoin_bonus=%d\ndisk=%d\ndisk_extra=%d\nrarity=%d\nrarity_share=%s\n" ..
-        "exp=%d\nexp_bonus=%d\nlast=%s\n",
+        "exp=%d\nexp_bonus=%d\nhit=%d\nlast=%s\n",
         os.time(), st.inGame and "1" or "0", tostring(st.floor), cfg.coin, st.coinBonus, cfg.disk, st.diskExtra,
-        cfg.rarity, st.share, cfg.exp, st.expBonus, st.last))
+        cfg.rarity, st.share, cfg.exp, st.expBonus, cfg.hit, st.last))
     f:close()
 end
 
@@ -137,25 +142,33 @@ local function applyRarity(seq, force)
     end
 end
 
--- ===== D.Chip (Coin) =====
+-- ===== gain multipliers (D.Chip, HIT combo) =====
 local MAX_STEP = 1000 -- per-tick increase cap: a save load / scene change must not get multiplied
-local coinPS, coinAddr, coinLast
 
-local function coinTick()
-    if not (coinPS and coinPS:IsValid()) then coinLast = nil return end
-    local cur = get(coinPS, "Coin")
-    if type(cur) ~= "number" then coinLast = nil return end
-    local addr = coinPS:GetAddress()
-    if addr ~= coinAddr or coinLast == nil then coinAddr, coinLast = addr, cur return end -- new PlayerState: resync
-    local d = cur - coinLast
-    if d > 0 and d <= MAX_STEP and cfg.coin > 1 then
-        local add = d * (cfg.coin - 1)
-        coinPS.Coin = cur + add
-        st.coinBonus = st.coinBonus + add
-        cur = cur + add
+-- Returns a tick(obj) that multiplies increases of obj[field] by cfg[key]. Decreases (spending, a combo
+-- reset) and a new object (scene change, reload) only resync.
+local function gainTicker(field, key, onBonus)
+    local addr, last
+    return function(obj)
+        if not (obj and obj:IsValid()) then last = nil return end
+        local cur = get(obj, field)
+        if type(cur) ~= "number" then last = nil return end
+        local a = obj:GetAddress()
+        if a ~= addr or last == nil then addr, last = a, cur return end
+        local d = cur - last
+        if d > 0 and d <= MAX_STEP and cfg[key] > 1 then
+            local add = d * (cfg[key] - 1)
+            obj[field] = cur + add
+            cur = cur + add
+            if onBonus then onBonus(add) end
+        end
+        last = cur
     end
-    coinLast = cur
 end
+
+local coinPS, player
+local coinTick = gainTicker("Coin", "coin", function(add) st.coinBonus = st.coinBonus + add end)
+local hitTick = gainTicker("Comb", "hit")
 
 -- ===== extra disks =====
 local spawning, pendingDisks = false, {}
@@ -221,7 +234,7 @@ local function flushExp()
         expGranting = false
         if not okg then log("extra EXP failed: " .. tostring(errg)) return end
         st.expBonus = st.expBonus + v
-        log(string.format("exp x%d: AddExp(%d) +%d", cfg.exp, id, v))
+        note(string.format("exp x%d: AddExp(%d) +%d", cfg.exp, id, v))
     end
 end
 
@@ -229,7 +242,8 @@ end
 -- Game-thread timers only. LoopAsync + ExecuteInGameThread built closures on UE4SS's async thread while the game
 -- thread ran this mod's hooks; the shared Lua state got corrupted ("Ref was not function") and crashed the game.
 LoopInGameThreadWithDelay(100, function()
-    pcall(coinTick)
+    pcall(coinTick, coinPS)
+    pcall(hitTick, player)
     local okd, errd = pcall(flushDisks)
     if not okd then log("disk error: " .. tostring(errd)) end
     local oke, erre = pcall(flushExp)
@@ -240,6 +254,7 @@ local lastRarity
 LoopInGameThreadWithDelay(1000, function()
     readSettings()
     coinPS = FindFirstOf("BP_MetalPlayerState_C")
+    player = FindFirstOf("BP_Player_C")
     local seq = FindFirstOf("MainSeq_C")
     st.inGame = seq ~= nil and seq:IsValid()
     if st.inGame then
@@ -256,6 +271,6 @@ if existing then
     existing:close()
 else -- first run: create defaults for the panel
     local f = io.open(SETTINGS, "w")
-    if f then f:write("coin=1\ndisk=1\nrarity=1\nexp=1\n"); f:close() end
+    if f then f:write("coin=1\ndisk=1\nrarity=1\nexp=1\nhit=1\n"); f:close() end
 end
 log("loaded, settings: " .. SETTINGS)
